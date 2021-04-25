@@ -8,30 +8,24 @@ Created on Wed Mar 10 17:46:19 2021
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import datetime
-from collections import Counter
-import statsmodels.api as sm
+
 import seaborn as sns
 from scipy.stats import pearsonr
 from sklearn.preprocessing import LabelEncoder
+from sklearn.cluster import DBSCAN
 
-import scipy.stats as stats
-from scipy.stats import chi2_contingency
-
-
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import ParameterGrid
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import f1_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import precision_score
-
+#from sklearn.metrics import recall_score
+#from sklearn.metrics import precision_score
+from matplotlib import cm
+plt.rcParams.update({'font.size': 10})
 
 students_df = pd.read_csv('with_grades_df_2020_2021.csv')
 students_df.rename( columns={'Unnamed: 0':'anonymous_id'}, inplace=True )
@@ -118,17 +112,17 @@ def test_course_views(students_df):
     #standard_dev = course_grades.std(axis = 0, skipna = True)
     #mean = course_grades.mean(axis = 0, skipna = True)
     
-    from sklearn.preprocessing import MinMaxScaler
+    
     scaler = MinMaxScaler() 
     scaled = scaler.fit_transform(course_grades)
     print(scaled)
     ##DBSCAN detects outliers using a clustering method
-    from sklearn.cluster import DBSCAN
-    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
+    
+    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 3, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
     #plot outliers against original data
-    from matplotlib import cm
+    
     cmap = cm.get_cmap('Set1')
     course_grades.plot.scatter(x='course_views',y='OVERALL_GRADE', c=clusters, cmap=cmap, colorbar = False)
     
@@ -163,14 +157,13 @@ def replace_outliers(students_df):
         grades = students_df['OVERALL_GRADE']
         course_grades = pd.concat([course_feature,grades],axis='columns')
         
-        from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler() 
         scaled = scaler.fit_transform(course_grades)
         #print(course_grades)
         ##DBSCAN detects outliers using a clustering method
-        from sklearn.cluster import DBSCAN
+
         ##lower eps will make more clusters
-        ##min_samples is number of dimentions + 1, a single feature is extracted and compared to grade result, therefore two dimentions are used
+        ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
         ##n_jobs will use concurrent processing when set to -1
         ##euclidean distance is better performing in low dimensional datasets
         outlier_detection = DBSCAN(eps = .10, metric="euclidean", min_samples =3 , n_jobs = -1)
@@ -181,9 +174,10 @@ def replace_outliers(students_df):
             if(value == -1):
                 #find the outlier & set to MEAN value where overall_grade col == grade
                 grade = course_grades.loc[index]['OVERALL_GRADE']
+                #print("before ", students_df.at[index,feature])
                 ##set course_views to mean of values for the specific grade
                 students_df.at[index,feature] = students_df.loc[students_df['OVERALL_GRADE'] == grade].mean(axis = 0, skipna = True)[feature]
-        
+                #print("after ",-students_df.at[index,feature])
 replace_outliers(students_df)
 
 #%% Find the corelation for every feature
@@ -195,13 +189,14 @@ def get_correlations(students_df):
     for feature in features:
         
         feature_extracted = students_df[feature]
+        #check if current feature is empty
         if((students_df[feature] == 0).all()):
              corr=0
         else:
             corr, _ = pearsonr(feature_extracted,grade)
-            #print("Feature:",feature,"\n")
-            #print("Corellation:",corr,"\n")
-           
+        #print("Feature:",feature,"\n")
+        #print("Corellation:",corr,"\n")
+       
         corelations.append([feature,corr])
     
     corelations = pd.DataFrame(corelations)
@@ -213,7 +208,7 @@ def get_correlations(students_df):
 
 corelations = get_correlations(students_df)
 #print(corelations.head(20))
-corelations.head(20).to_csv('top20Activities.csv')
+#corelations.head(20).to_csv('top20Activities.csv')
 
 #%% Get the columns from correlations and select features from student df
 topActivities = corelations.head(20)
@@ -227,10 +222,10 @@ features = students_df[topList]
 #print(len(features.index))
 
 #%% Use the Random Forest classifier
-X = features.iloc[:,0:20].values
-y = features.iloc[:, 20].values
+#X = features.iloc[:,0:20].values
+#y = features.iloc[:, 20].values
 
-def strat_rf_predict():
+def strat_rf_predict(X,y):
     skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)
     #print(skf.get_n_splits(X, y))
     
@@ -267,27 +262,27 @@ def strat_rf_predict():
                 best_score = score
                 #print(y_test)
                 #print(y_pred)
-                best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
-                best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
                 f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
                 best_grid = g
         
-        print("RF Score: %0.5f" % best_score)
-        print("RF Recall: ", best_recall)
-        print("RF Precision: ", best_precision)
-        print("RF Macro F1: ", f1_macro)
-        print("RF Micro F1: ", f1_micro)
-        print("RF Grid:", best_grid)
+        #print("RF Score: %0.5f" % best_score)
+        #print("RF Recall: ", best_recall)
+        #print("RF Precision: ", best_precision)
+        #print("RF Macro F1: ", f1_macro)
+        #print("RF Micro F1: ", f1_micro)
+        #print("RF Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
     df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-random_forest_df = strat_rf_predict()     
+#random_forest_df = strat_rf_predict()     
 
 
 #%% SVM 
-def strat_svm_predict():
+def strat_svm_predict(X,y):
     skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)
     
     svcClassifier = SVC(gamma='scale')
@@ -322,17 +317,72 @@ def strat_svm_predict():
             # save if best
             if score > best_score:
                 best_score = score
-                best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
-                best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
                 f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
                 best_grid = g
                 
-        print("SVC Score: %0.5f" % best_score) 
-        print("F1 Micro: %0.5f" % f1_micro)
-        print("SVC Grid:", best_grid)
+        #print("SVC Score: %0.5f" % best_score) 
+        #print("F1 Micro: %0.5f" % f1_micro)
+        #print("SVC Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
     df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-svm_df = strat_svm_predict()
+#svm_df = strat_svm_predict()
+
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,78]
+
+def best_scores_with_feature_sets(testFeatures):
+    all_svms=list();
+    all_rfs=list();
+    best_df = pd.DataFrame({'Number of Features':testFeatures})
+    best_df["Random Forest"] = np.nan
+    best_df["Support Vector Classifier"] = np.nan
+    
+    micro_df = pd.DataFrame({'Number of Features':testFeatures})
+    micro_df["Random Forest"] = np.nan
+    micro_df["Support Vector Classifier"] = np.nan
+    
+    print(best_df)
+    for value in testFeatures:
+        topActivities = corelations.head(value)
+        topList = list()
+        
+        for val in topActivities['Feature']:
+            topList.append(val)
+        
+        topList.append('OVERALL_GRADE')
+        features = students_df[topList]
+        
+        X = features.iloc[:,0:value].values
+        y = features.iloc[:, value].values
+        
+        random_forest_df = strat_rf_predict(X,y)  
+        svm_df = strat_svm_predict(X,y)
+        
+        best_rf = random_forest_df.iloc[random_forest_df['Best Score'].idxmax()]
+        best_svm = svm_df.iloc[svm_df['Best Score'].idxmax()]
+        
+        all_svms.append([value,best_svm])
+        all_rfs.append([value,best_rf])
+        
+        best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = best_rf['Best Score'] 
+        best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['Best Score'] 
+        
+        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Micro']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
+        
+        
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm',  value_name='Accuracy')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm',  value_name='F1 Micro')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    return all_rfs, all_svms, best_df
+    
+best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)

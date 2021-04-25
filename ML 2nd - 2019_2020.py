@@ -8,6 +8,8 @@ Created on Wed Mar 10 17:46:19 2021
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import matplotlib.pyplot as plt
+
 from scipy.stats import pearsonr
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import GridSearchCV
@@ -24,6 +26,8 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import precision_score
 from sklearn.preprocessing import MinMaxScaler
+plt.rcParams.update({'font.size': 10})
+
 students_df = pd.read_csv('with_grades_df.csv')
 students_df.rename( columns={'Unnamed: 0':'anonymous_id'}, inplace=True )
 
@@ -124,7 +128,11 @@ def test_course_views(students_df):
     scaled = scaler.fit_transform(course_grades)
     
     ##DBSCAN detects outliers using a clustering method
-    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
+    ##lower eps will make more clusters
+    ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
+    ##n_jobs will use concurrent processing when set to -1
+    ##euclidean distance is better performing in low dimensional datasets
+    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 3, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
     #plot outliers against original data

@@ -122,8 +122,10 @@ def test_course_views(students_df):
     scaler = MinMaxScaler() 
     scaled = scaler.fit_transform(course_grades)
     
-    ##DBSCAN detects outliers using a clustering method
-    
+    ##lower eps will make more clusters
+    ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
+    ##n_jobs will use concurrent processing when set to -1
+    ##euclidean distance is better performing in low dimensional datasets
     outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
@@ -151,7 +153,7 @@ def test_course_views(students_df):
     course_corr, _ = pearsonr(module_logins, grades)
     print("pearson course views linear relation with grade after", course_corr)
     
-#test_course_views(students_df)
+test_course_views(students_df)
 #%% Outlier Replacement in students_df
 def replace_outliers(students_df):
     ##Remove all outliers
@@ -168,7 +170,7 @@ def replace_outliers(students_df):
         ##DBSCAN detects outliers using a clustering method
         
         ##lower eps will make more clusters
-        ##min_samples is number of dimentions + 1, a single feature is extracted and compared to grade result, therefore two dimentions are used
+        ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
         ##n_jobs will use concurrent processing when set to -1
         ##euclidean distance is better performing in low dimensional datasets
         outlier_detection = DBSCAN(eps = .10, metric="euclidean", min_samples =3 , n_jobs = -1)
@@ -203,8 +205,9 @@ def two_col_kmeans_clustering(X,y):
     
 #%% Correlation testing
 
-def chi_square_best(students_df):
+def chi_square_best(students_df,size):
     features_extracted = students_df.drop(['anonymous_id','COURSEWORK_1','COURSEWORK_2'], axis=1)
+    #code used from https://www.codenong.com/51695769/
     
     # Create features and target
     X = features_extracted.iloc[:,0:len(features_extracted.columns)-1].values
@@ -214,8 +217,8 @@ def chi_square_best(students_df):
     # Convert to categorical data by converting data to integers
     X = X.astype(int)
     
-    # Select two features with highest chi-squared statistics
-    chi2_selector = SelectKBest(chi2, k=20)
+    # Select features with highest chi-squared statistics
+    chi2_selector = SelectKBest(chi2, k=size)
     chi2_selector.fit(X, y)
     
     # Look at scores returned from the selector for each feature
@@ -231,28 +234,23 @@ def chi_square_best(students_df):
     
     final = final.loc[final['best']==True].drop(['best'],axis=1)
     
-    #for idx,val in enumerate(chi2_scores['pval']):
-    #    decimal = f"{val:.50f}"
-    #    print(decimal)
-    #    chi2_scores = chi2_scores.replace(chi2_scores.loc[idx]['pval'] , decimal)
     return final, chi2_scores
 
-topActivities, chi2_scores = chi_square_best(students_df)
-topList = list()
+topActivities, chi2_scores = chi_square_best(students_df,20)
+#topList = list()
 
-for val in topActivities['label']:
-    topList.append(val)
+#for val in topActivities['label']:
+#    topList.append(val)
 
-topList.append('OVERALL_GRADE')
-features = students_df[topList]
+#topList.append('OVERALL_GRADE')
+#features = students_df[topList]
 
 #%% Use the Random Forest classifier
-X = features.iloc[:,0:20].values
-y = features.iloc[:, 20].values
-
+#X = features.iloc[:,0:20].values
+#y = features.iloc[:, 20].values
 
 sc = StandardScaler()
-def rf_predict():
+def rf_predict(X,y):
     X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42, stratify=y)
         
     param_grid = {
@@ -282,10 +280,10 @@ def rf_predict():
     #score=cross_val_score(classifier,X_test,y_test,cv=5)
     #print(score)
     return rfResult
-#rf_predict()
+#rf_predict(X,y)
 
 ##stratified kfold from https://github.com/codebasics/py/blob/master/ML/12_KFold_Cross_Validation/12_k_fold.ipynb
-def strat_rf_predict():
+def strat_rf_predict(X,y):
     skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)
     #print(skf.get_n_splits(X, y))
     
@@ -339,10 +337,10 @@ def strat_rf_predict():
         random_forest_data.append(data)
     df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-random_forest_df = strat_rf_predict()        
+#random_forest_df = strat_rf_predict(X,y)        
 
 #%% SVM 
-def svm_predict():
+def svm_predict(X,y):
     X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42, stratify=y)
     
     svcClassifier = SVC(gamma='scale')
@@ -362,12 +360,11 @@ def svm_predict():
     
     #print(score)
     #print("Precision:",metrics.precision_score(y_test, y_pred))
-    
-    # Model Recall: what percentage of positive tuples are labelled as such?
+   
     #print("Recall:",metrics.recall_score(y_test, y_pred))
     return svcResult
 
-def strat_svm_predict():
+def strat_svm_predict(X,y):
     skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=42) 
     
     param_grid = [
@@ -413,7 +410,7 @@ def strat_svm_predict():
         svm_data.append(data)
     df = pd.DataFrame(svm_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-svm_df = strat_svm_predict()
+#svm_df = strat_svm_predict(X,y)
 
 course_views_numpy = students_df['Study Area: [Module 2020/2021] CM4107 - Full Time: Advanced Artificial Intelligence'].to_numpy()
 #two_col_kmeans_clustering(course_views_numpy,y)
@@ -442,7 +439,7 @@ def kmeans_input_features(features):
     plt.title('K-means Clustering with 2 dimensions')
     plt.show()
     
-kmeans_input_features(features)
+#kmeans_input_features(features)
 
 def pca_scatter(features):
     #x_data = features.drop(labels='OVERALL_GRADE', axis=1)
@@ -464,4 +461,60 @@ def pca_scatter(features):
     plt.show()
     
     
-pca_scatter(features)   
+#pca_scatter(features)   
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,78]
+
+def best_scores_with_feature_sets(testFeatures):
+    all_svms=list();
+    all_rfs=list();
+    best_df = pd.DataFrame({'Number of Features':testFeatures})
+    best_df["Random Forest"] = np.nan
+    best_df["Support Vector Classifier"] = np.nan
+    
+    micro_df = pd.DataFrame({'Number of Features':testFeatures})
+    micro_df["Random Forest"] = np.nan
+    micro_df["Support Vector Classifier"] = np.nan
+    
+    print(best_df)
+    for value in testFeatures:
+        topActivities, chi2_scores = chi_square_best(students_df,value)
+        topList = list()
+        
+        for val in topActivities['label']:
+            topList.append(val)
+        
+        topList.append('OVERALL_GRADE')
+        features = students_df[topList]
+        
+        X = features.iloc[:,0:value].values
+        y = features.iloc[:, value].values
+        
+        random_forest_df = strat_rf_predict(X,y)  
+        svm_df = strat_svm_predict(X,y)
+        
+        best_rf = random_forest_df.iloc[random_forest_df['Best Score'].idxmax()]
+        best_svm = svm_df.iloc[svm_df['Best Score'].idxmax()]
+        
+        all_svms.append([value,best_svm])
+        all_rfs.append([value,best_rf])
+        
+        best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = best_rf['Best Score'] 
+        best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['Best Score'] 
+        
+        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Micro']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
+        
+        
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm',  value_name='Accuracy')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm',  value_name='F1 Micro')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    return all_rfs, all_svms, best_df
+    
+best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
+
+        

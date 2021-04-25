@@ -10,14 +10,24 @@ import numpy as np
 import datetime
 from collections import Counter
 
+#Cohort 2018/2019
 logs_df = pd.read_csv('files/allLogs.csv')
+unique = logs_df['User full name'].unique()
 
-## found each staff member by using logs_df['User full name'].unique()
-## staff members do not have a matriculation number
+cw1Time = datetime.date(2018,10,25)
+cw2Time = datetime.date(2018,11,30)
+startYear = datetime.date(2018,8,1)
+## identify each staff member by using logs_df['User full name'].unique()
+## most staff members do not have a matriculation number
 staffNames = ['Adam Lyons','Yann Savoye','Fee Mathieson',
               'Nirmalie Wiratunga','Steven Rae','John Isaacs',
               '-', 'Kit-ying Hui', 'Mark Zarb','Rachael Sammon',
-              'Fiona Caldwell','Susan Frost','Sadiq Sani','Ailsa McWhirter']
+              'Fiona Caldwell','Susan Frost','Sadiq Sani','Ailsa McWhirter',
+              'KYLE MARTIN (1106883)', 'CampusMoodle', 'David Dixon','Ikechukwu Nkisi-Orji',
+              'David Corsar','Anjana Wijekoon','Ashleigh Henderson','Kyle Martin','Isobel Gordon','Colin Beagrie',
+              'Rachael Sammon as KIERAN MCKENZIE (1806221)','Carlos Moreno-Garcia','Ashleigh Henderson',
+              'Steven Rae as YASSEEN AHMANACHE (1603243)'
+              ]
 
 # Draw Plot for dates
 def date_plot(df, title="", xlabel='Date', ylabel='Value', dpi=100):
@@ -30,7 +40,13 @@ def date_plot(df, title="", xlabel='Date', ylabel='Value', dpi=100):
     plt.show()
 
 #draw plot for activities accessed
-def activity_access_plot(activities,counts):
+def activity_access_plot(event_list):
+    activities = list()
+    counts = list()
+
+    for idx,var in enumerate(event_list):
+        activities.append(var[0])
+        counts.append(var[1])
     # Figure Size
     fig, ax = plt.subplots(figsize =(16, 9))
      
@@ -65,13 +81,22 @@ def activity_access_plot(activities,counts):
                  color ='grey')
      
     # Add Plot Title
-    ax.set_title('No of access per course activity up to 10th November',
+    ax.set_title('No of access per course activity up to 30th November',
                  loc ='left', )
      
     # Show Plot
     plt.show()
+
+##get a date from moodle timestamp
+def get_Date(datet):    
+    datesplit = (datet.split(',',1))
+    date = datesplit[0]
+    date_obj = date.split('/',2)
     
-    
+    d = datetime.date(2000+int(date_obj[2]), int(date_obj[1]), int(date_obj[0]))
+    return d
+
+
 users_list = logs_df['User full name']
 
 #Drop staff members from csv file
@@ -90,6 +115,7 @@ users_list = users_list.unique()
 logs_df.insert(0,'anonymous_id','')
 users_df = pd.DataFrame(users_list)
 
+
 for idx, val in enumerate(logs_df['User full name']):
     #print(idx, val)
     #get current student
@@ -102,8 +128,8 @@ for idx, val in enumerate(logs_df['User full name']):
     del curr
     
 #Drop identifying and unused    
-logs_df = logs_df.drop(columns=['User full name', 'Affected user', 'Origin', 'IP address'], axis=1)
-users_df = users_df.drop(columns=[0], axis=1)
+#logs_df = logs_df.drop(columns=['User full name', 'Affected user', 'Origin', 'IP address'], axis=1)
+#users_df = users_df.drop(columns=[0], axis=1)
 
 #delete staff names
 del staffNames
@@ -120,15 +146,11 @@ def get_course_views(df):
     time_list = list()
     
     for idx, val in enumerate(df['Time']):
-        datesplit = (val.split(',',1))
-        date = datesplit[0]
-        date_obj = date.split('/',2)
-        
-        d = datetime.date(2000+int(date_obj[2]), int(date_obj[1]), int(date_obj[0]))
+        d = get_Date(val)
         ##if date is less than the courework 2 deadline
-        if(d <= datetime.date(2018,11,10)):
+        if((d >= startYear ) and (d <= cw2Time)):
            time_list.append(d)
-        del idx, val,datesplit,date,date_obj,d    
+        del idx, val, d    
     return time_list
 
 course_views = get_course_views(course_views_logs)
@@ -140,7 +162,7 @@ time_count_df = time_count_df.rename(columns={'index':'time', 0:'count'})
 del course_views
 
 #plot number of course views
-date_plot(time_count_df, title='Number of course views over time')
+date_plot(time_count_df, title='Number of Module logins over time')
 
 #get a count of every course event
 event_views_dfs = list()
@@ -159,21 +181,133 @@ for idx,val in enumerate(event_ctx):
 #summarise the counts of each course
 event_list = list()
 for idx,df in enumerate(event_views_dfs):
-    if (idx !=0):
-        counts = df['count'].to_numpy().sum()
-        name = df['name'].unique()
-        event_list.append([name[0],counts])
+    #if (idx !=0):
+    counts = df['count'].to_numpy().sum()
+    name = df['name'].unique()
+    event_list.append([name[0],counts])
         #print(name[0])
-        del counts,name
+    del counts,name
     del idx,df
 del event_views_dfs    
 
-activities = list()
-counts = list()
-
-for idx,var in enumerate(event_list):
-    activities.append(var[0])
-    counts.append(var[1])
 
 #plot number of course views
-activity_access_plot(activities,counts)
+#activity_access_plot(event_list)
+
+#find the top activities accessed
+def Nmaxelements(lists, N): 
+    final_list = []
+    names = [item[0] for item in lists]
+    counts = [item[1] for item in lists]
+    
+    for i in range(0, N):  
+        max1 = 0
+        max1name=''
+        for j in range(len(counts)):
+            #curr = names[j].split(':',1)
+            #if (curr[0] != 'Assignment' and curr[0] != 'Forum'):
+            if counts[j] > max1: 
+                max1 = counts[j]; 
+                max1name=names[j]
+        counts.remove(max1);
+        names.remove(max1name);
+        final_list.append([max1name,max1]) 
+          
+    return(final_list) 
+    
+#topactivities = Nmaxelements(event_list, len(event_list)-1)
+topactivities = Nmaxelements(event_list, 10)
+activity_access_plot(topactivities)
+users_df.insert(1,'late',0)
+users_df.insert(2,'ontime',0)
+users_df.insert(3,'early',0)
+users_df.rename( columns={0:'User full name'}, inplace=True )
+
+AssignmentNames = ['Assignment: DROPBOX CM4107 CW PART1', 'Assignment: DROPBOX CM4107 CW PART2']
+
+def Assignments(AssignmentNames, users_df, logs_df, cw1Time, cw2Time):
+    
+    for value in AssignmentNames:
+        
+        for index, row in users_df.iterrows():
+            
+            if(value == 'Assignment: DROPBOX CM4107 CW PART1'):
+                cwTime = cw1Time
+            else:
+                cwTime = cw2Time
+                
+            student = index
+            assignment1 = logs_df.loc[(logs_df['anonymous_id'] == student) & (logs_df['Event context'] == value ) & (logs_df['Event name'] == 'A submission has been submitted.' ) ]
+            #print(assignment1)
+           
+            status=''#empty
+            if(assignment1.empty == False):
+                for idx, val in assignment1.iterrows():
+                    if(val['Time']):
+                        timestamp = val['Time']
+                        d = get_Date(timestamp)
+                        
+                        if ( (status != 'ontime' and d < cwTime) and (status != 'late' and d < cwTime) ):
+                            print('early\n', d, val['Event context'], student)
+                            status='early'
+                        elif ( (status != 'late' and d == cwTime) ):
+                            print('ontime\n', d, val['Event context'], student)
+                            status='ontime'
+                        else:
+                            print('late\n', d, val['Event context'], student)
+                            status='late'    
+                        
+                if(status == 'early'):        
+                    users_df.early.iloc[index] += 1
+                elif(status == 'ontime'):
+                    users_df.ontime.iloc[index] += 1
+                else:
+                    users_df.late.iloc[index] += 1
+      
+    return users_df
+
+users_df = Assignments(AssignmentNames, users_df,logs_df, cw1Time, cw2Time)
+                
+                
+##export to csv
+#logs_df.to_csv('anonymous_logs.csv', sep=',', encoding='utf-8', index=False)
+
+topactivities = pd.DataFrame(topactivities, columns=["Resource", "Count"])
+print(topactivities)
+topactivities.to_csv('topActivities.csv', sep=',', encoding='utf-8', index=False)
+
+#users_df.to_csv('anonymous_users.csv', sep=',', encoding='utf-8')
+
+#logs_df = pd.read_csv('anonymous_logs.csv')
+#activities_df = pd.read_csv('topActivities.csv')
+#users_df = pd.read_csv('anonymous_users.csv')
+users_df.rename( columns={'Unnamed: 0':'anonymous_id'}, inplace=True )
+
+for index, row in topactivities.iterrows():
+    #print(row['Resource'])
+    users_df.insert(index,row['Resource'],'')
+    
+    
+#for every student find their actions for the activity
+for index, row in users_df.iterrows():
+    #print(index,row)
+    print(index,"\n")
+    #for every column in the row
+    for idx, col in enumerate(row):
+        #locate the student and the activity
+        student = index
+        if(idx < len(topactivities.index)):
+            activity = topactivities.loc[idx]['Resource']
+            #get logs where student and activity occur
+            log = logs_df.loc[(logs_df['anonymous_id'] == student) & (logs_df['Event context'] == activity)]
+            
+            print(len(log.index), activity)
+            #users_df.insert(student,row[activity],len(log.index))
+            #locate student and and activity in users_df
+            users_df.loc[(users_df.index == student),activity] = len(log.index)
+            
+
+
+export_df = users_df[['User full name','early','ontime','late']]
+export_df = pd.merge(export_df, users_df, how='left')
+export_df.to_csv('users.csv', sep=',', encoding='utf-8')

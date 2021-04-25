@@ -114,7 +114,7 @@ def test_course_views(students_df):
     scaled = scaler.fit_transform(course_grades)
     
     ##DBSCAN detects outliers using a clustering method
-    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
+    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 3, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
     #plot outliers against original data
@@ -157,7 +157,7 @@ def replace_outliers(students_df):
         #print(course_grades)
         ##DBSCAN detects outliers using a clustering method
         ##lower eps will make more clusters
-        ##min_samples is number of dimentions + 1, a single feature is extracted and compared to grade result, therefore two dimentions are used
+        ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
         ##n_jobs will use concurrent processing when set to -1
         ##euclidean distance is better performing in low dimensional datasets
         outlier_detection = DBSCAN(eps = .10, metric="euclidean", min_samples =5 , n_jobs = -1)
@@ -194,6 +194,7 @@ def two_col_kmeans_clustering(X,y):
 #%% Correlation testing
 def chi_square_best(students_df):
     features_extracted = students_df.drop(['anonymous_id','COURSEWORK_1','COURSEWORK_2'], axis=1)
+    #code used from https://www.codenong.com/51695769/
     
     # Create features and target
     X = features_extracted.iloc[:,0:len(features_extracted.columns)-1].values
@@ -216,6 +217,7 @@ def chi_square_best(students_df):
     kbest = chi2_selector.get_support()
     kbest = pd.DataFrame(kbest, columns=['best'])
     labels = pd.DataFrame(x_labels, columns=['label'])
+    
     final = kbest.join(labels)
     final = final.loc[final['best']==True].drop(['best'],axis=1)
     return final, chi2_scores
