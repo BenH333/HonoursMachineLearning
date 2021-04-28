@@ -118,7 +118,7 @@ def test_course_views(students_df):
     print(scaled)
     ##DBSCAN detects outliers using a clustering method
     
-    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 3, n_jobs = -1)
+    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
     #plot outliers against original data
@@ -332,7 +332,7 @@ def strat_svm_predict(X,y):
     return df
 #svm_df = strat_svm_predict()
 
-testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,78]
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,len(students_df.columns)-4]
 
 def best_scores_with_feature_sets(testFeatures):
     all_svms=list();
@@ -375,13 +375,13 @@ def best_scores_with_feature_sets(testFeatures):
         micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
         
         
-    best_df = best_df.melt('Number of Features', var_name='ML Algorithm',  value_name='Accuracy')
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2020/2021',  value_name='Accuracy')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2020/2021', data=best_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
-    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm',  value_name='F1 Micro')
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2020/2021',  value_name='F1 Micro')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm on 2020/2021', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
     return all_rfs, all_svms, best_df
     

@@ -153,7 +153,7 @@ def test_course_views(students_df):
     course_corr, _ = pearsonr(module_logins, grades)
     print("pearson course views linear relation with grade after", course_corr)
     
-test_course_views(students_df)
+#test_course_views(students_df)
 #%% Outlier Replacement in students_df
 def replace_outliers(students_df):
     ##Remove all outliers
@@ -173,7 +173,7 @@ def replace_outliers(students_df):
         ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
         ##n_jobs will use concurrent processing when set to -1
         ##euclidean distance is better performing in low dimensional datasets
-        outlier_detection = DBSCAN(eps = .10, metric="euclidean", min_samples =3 , n_jobs = -1)
+        outlier_detection = DBSCAN(eps = .5, metric="euclidean", min_samples =5 , n_jobs = -1)
         clusters = outlier_detection.fit_predict(scaled)
         
         clusters = pd.DataFrame(clusters,columns=['Outlier'])
@@ -185,23 +185,6 @@ def replace_outliers(students_df):
                 students_df.at[index,feature] = students_df.loc[students_df['OVERALL_GRADE'] == grade].mean(axis = 0, skipna = True)[feature]
         
 replace_outliers(students_df)
-    
-def two_col_kmeans_clustering(X,y):
-    ##x and y are numpy arrays
-    
-    X = np.vstack((X, y)).T
-    #print(X[:,0])
-    #print(X[:,1])
-    
-    plt.scatter(X[:,0],X[:,1], label='True Position')
-    plt.show()
-    
-    kmeans = KMeans(n_clusters=6)
-    kmeans.fit(X)
-    #print(kmeans.cluster_centers_)
-    #print(kmeans.labels_)
-    plt.scatter(X[:,0],X[:,1], c=kmeans.labels_, cmap='rainbow')
-    plt.scatter(kmeans.cluster_centers_[:,0] ,kmeans.cluster_centers_[:,1], color='black')
     
 #%% Correlation testing
 
@@ -236,14 +219,7 @@ def chi_square_best(students_df,size):
     
     return final, chi2_scores
 
-topActivities, chi2_scores = chi_square_best(students_df,20)
-#topList = list()
 
-#for val in topActivities['label']:
-#    topList.append(val)
-
-#topList.append('OVERALL_GRADE')
-#features = students_df[topList]
 
 #%% Use the Random Forest classifier
 #X = features.iloc[:,0:20].values
@@ -413,56 +389,81 @@ def strat_svm_predict(X,y):
 #svm_df = strat_svm_predict(X,y)
 
 course_views_numpy = students_df['Study Area: [Module 2020/2021] CM4107 - Full Time: Advanced Artificial Intelligence'].to_numpy()
-#two_col_kmeans_clustering(course_views_numpy,y)
-
-def kmeans_input_features(features):
-    ##x and y are numpy arrays
-
-    y_data = pd.read_csv('with_grades_df_2020_2021.csv')
-    y_data = y_data['OVERALL_GRADE']
-    
-    clustering_kmeans = KMeans(n_clusters=7, precompute_distances="auto", n_jobs=-1)
-    features['Clusters'] = clustering_kmeans.fit_predict(features)
-    features['Clusters'] = features['Clusters'] +1
-    features = features.drop(labels='OVERALL_GRADE', axis=1)
-    
-    pca = PCA(n_components=2)
-    principalComponents = pca.fit_transform(features)
-    
-    principalDf = pd.DataFrame(data = principalComponents ,
-                               columns = ['Principal Component 1', 'Principal Component 2'])
-    
-    finalDf = pd.concat([principalDf, y_data], axis = 1)
-    
-    sns.set_style("darkgrid")
-    sns.scatterplot(x="Principal Component 1", y="Principal Component 2", hue=features['Clusters'], data=finalDf, palette=sns.color_palette('viridis_r', n_colors=7))
-    plt.title('K-means Clustering with 2 dimensions')
-    plt.show()
-    
-#kmeans_input_features(features)
 
 def pca_scatter(features):
+    features = features.drop(labels='OVERALL_GRADE', axis=1)
+    sc = StandardScaler()
+    features = sc.fit_transform(features)
+    
     #x_data = features.drop(labels='OVERALL_GRADE', axis=1)
     y_data = pd.read_csv('with_grades_df_2020_2021.csv')
     y_data = y_data['OVERALL_GRADE']
     
     pca = PCA(n_components=2)
+    
     principalComponents = pca.fit_transform(features)
     
     principalDf = pd.DataFrame(data = principalComponents ,
                                columns = ['Principal Component 1', 'Principal Component 2'])
     
     finalDf = pd.concat([principalDf, y_data], axis = 1)
-    print(finalDf.head())
     
     sns.set_style("darkgrid")
-    sns.scatterplot(x="Principal Component 1", y="Principal Component 2", hue=finalDf['OVERALL_GRADE'],data=finalDf, palette=sns.color_palette('viridis_r', n_colors=7))
+    sns.scatterplot(x="Principal Component 1", y="Principal Component 2", hue=finalDf['OVERALL_GRADE'],hue_order=['A','B','C','D','E','F','NS'],data=finalDf, palette=sns.color_palette('Spectral_r', n_colors=7))
     plt.title('Grade with Two Dimensions')
     plt.show()
     
     
-#pca_scatter(features)   
-testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,78]
+    model = KMeans(n_clusters=7)
+    model.fit(principalDf.iloc[:,:2])
+    
+    labels = model.predict(principalDf.iloc[:,:2])
+    sns.scatterplot(x="Principal Component 1", y="Principal Component 2", hue=labels ,data=principalDf, palette=sns.color_palette('Spectral_r', n_colors=7))
+    plt.title('Clusters with Two Dimensions')
+    plt.show()
+
+
+topActivities, chi2_scores = chi_square_best(students_df,20)
+
+topList = list()
+
+for val in topActivities['label']:
+    topList.append(val)
+
+topList.append('OVERALL_GRADE')
+features = students_df[topList]
+
+pca_scatter(features)   
+
+def pca_test(students_df):
+    X = students_df.drop(['COURSEWORK_1','COURSEWORK_2','OVERALL_GRADE'], axis=1)
+    y = students_df['OVERALL_GRADE']
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    param_grid = {
+                     'n_estimators': [5, 10, 15, 20, 100],
+                     'max_depth': [2, 5, 7, 9, 10, 11]
+                 }
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.transform(X_test)
+    
+    pca = PCA(n_components=2)
+    X_train = pca.fit_transform(X_train)
+    X_test = pca.transform(X_test)
+    
+    classifier = RandomForestClassifier(max_depth=2, random_state=0)
+    classifier.fit(X_train, y_train)
+
+    grid_svc = GridSearchCV(classifier, param_grid,cv=4)
+    grid_svc.fit(X_train, y_train)
+    grid_svc.best_params_
+    print("Best: %f using %s" % (grid_svc.best_score_, grid_svc.best_params_))
+    print('Test Accuracy: %.3f' % grid_svc.score(X_test, y_test))
+    svcResult = grid_svc.score(X_test, y_test)
+    
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,len(students_df.columns)-4]
 
 def best_scores_with_feature_sets(testFeatures):
     all_svms=list();
@@ -505,16 +506,14 @@ def best_scores_with_feature_sets(testFeatures):
         micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
         
         
-    best_df = best_df.melt('Number of Features', var_name='ML Algorithm',  value_name='Accuracy')
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2020/2021',  value_name='Accuracy')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2020/2021', data=best_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
-    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm',  value_name='F1 Micro')
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2020/2021',  value_name='F1 Micro')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm on 2020/2021', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
     return all_rfs, all_svms, best_df
     
-best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
-
-        
+#best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)

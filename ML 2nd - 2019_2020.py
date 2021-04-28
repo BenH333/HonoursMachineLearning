@@ -132,7 +132,7 @@ def test_course_views(students_df):
     ##The number of samples (or total weight) in a neighborhood for a point to be considered as a core point. This includes the point itself.
     ##n_jobs will use concurrent processing when set to -1
     ##euclidean distance is better performing in low dimensional datasets
-    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 3, n_jobs = -1)
+    outlier_detection = DBSCAN(eps = 0.5, metric="euclidean", min_samples = 5, n_jobs = -1)
     clusters = outlier_detection.fit_predict(scaled)
     
     #plot outliers against original data
@@ -279,7 +279,7 @@ def rf_predict():
 #rf_predict()
     
 #%% Use Stratified KFold without GridCV
-def strat_rf_predict():
+def strat_rf_predict(X,y):
     skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
     #print(skf.get_n_splits(X, y))
     
@@ -303,7 +303,6 @@ def strat_rf_predict():
     
         rf = RandomForestClassifier()
         best_score=0
-        
         #hyperparameter tuning
         #https://stackoverflow.com/questions/34624978/is-there-easy-way-to-grid-search-without-cross-validation-in-python
         for g in ParameterGrid(param_grid):
@@ -317,23 +316,23 @@ def strat_rf_predict():
                 best_score = score
                 #print(y_test)
                 #print(y_pred)
-                best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
-                best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
                 f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
                 best_grid = g
         
-        print("RF Score: %0.5f" % best_score)
+        #print("RF Score: %0.5f" % best_score)
         #print("RF Recall: ", best_recall)
         #print("RF Precision: ", best_precision)
-        print("RF Macro F1: ", f1_macro)
-        print("RF Micro F1: ", f1_micro)
-        print("RF Grid:", best_grid)
+        #print("RF Macro F1: ", f1_macro)
+        #print("RF Micro F1: ", f1_micro)
+        #print("RF Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
     df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-random_forest_df = strat_rf_predict()        
+#random_forest_df = strat_rf_predict(  
 
 #%% Use the Random Forest classifier
 def two_col_kmeans_clustering(X,y):
@@ -390,7 +389,7 @@ def svm_predict():
     #print("Recall:",metrics.recall_score(y_test, y_pred))
     #from sklearn.svm import SVC
     
-def strat_svm_predict():
+def strat_svm_predict(X,y):
     skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
     
     svcClassifier = SVC(gamma='scale')
@@ -421,27 +420,81 @@ def strat_svm_predict():
             svc.fit(X_train,y_train)
             y_pred = svc.predict(X_test)
             score = accuracy_score(y_test, y_pred)
-            f1_micro = f1_score(y_test, y_pred, average='weighted')
+            
             # save if best
             if score > best_score:
                 best_score = score
-                best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
-                best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
+                #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
                 f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
                 best_grid = g
                 
-        print("SVC Score: %0.5f" % best_score) 
-        print("F1 Micro: %0.5f" % f1_micro)
-        print("F1 Macro: %0.5f" % f1_macro)
-        print("SVC Grid:", best_grid)
+        #print("SVC Score: %0.5f" % best_score) 
+        #print("F1 Micro: %0.5f" % f1_micro)
+        #print("SVC Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
     df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
     return df
-svm_df = strat_svm_predict()
+#svm_df = strat_svm_predict()
     
     
 #svm_predict()
 #course_views_numpy = students_df['Study Area: [Module 2019/2020] CM4107 - Full Time: Advanced Artificial Intelligence'].to_numpy()
 #two_col_kmeans_clustering(course_views_numpy,y)
+
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,len(students_df.columns)-4]
+
+def best_scores_with_feature_sets(testFeatures):
+    all_svms=list();
+    all_rfs=list();
+    best_df = pd.DataFrame({'Number of Features':testFeatures})
+    best_df["Random Forest"] = np.nan
+    best_df["Support Vector Classifier"] = np.nan
+    
+    micro_df = pd.DataFrame({'Number of Features':testFeatures})
+    micro_df["Random Forest"] = np.nan
+    micro_df["Support Vector Classifier"] = np.nan
+    
+    print(best_df)
+    for value in testFeatures:
+        topActivities = corelations.head(value)
+        topList = list()
+        
+        for val in topActivities['Feature']:
+            topList.append(val)
+        
+        topList.append('OVERALL_GRADE')
+        features = students_df[topList]
+        
+        X = features.iloc[:,0:value].values
+        y = features.iloc[:, value].values
+        
+        random_forest_df = strat_rf_predict(X,y)  
+        svm_df = strat_svm_predict(X,y)
+        
+        best_rf = random_forest_df.iloc[random_forest_df['Best Score'].idxmax()]
+        best_svm = svm_df.iloc[svm_df['Best Score'].idxmax()]
+        
+        all_svms.append([value,best_svm])
+        all_rfs.append([value,best_rf])
+        
+        best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = best_rf['Best Score'] 
+        best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['Best Score'] 
+        
+        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Micro']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
+        
+        
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='Accuracy')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2019/2020', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='F1 Micro')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm on 2019/2020', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    return all_rfs, all_svms, best_df
+    
+best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
