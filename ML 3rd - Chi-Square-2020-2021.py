@@ -435,33 +435,6 @@ features = students_df[topList]
 
 pca_scatter(features)   
 
-def pca_test(students_df):
-    X = students_df.drop(['COURSEWORK_1','COURSEWORK_2','OVERALL_GRADE'], axis=1)
-    y = students_df['OVERALL_GRADE']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    param_grid = {
-                     'n_estimators': [5, 10, 15, 20, 100],
-                     'max_depth': [2, 5, 7, 9, 10, 11]
-                 }
-    sc = StandardScaler()
-    X_train = sc.fit_transform(X_train)
-    X_test = sc.transform(X_test)
-    
-    pca = PCA(n_components=2)
-    X_train = pca.fit_transform(X_train)
-    X_test = pca.transform(X_test)
-    
-    classifier = RandomForestClassifier(max_depth=2, random_state=0)
-    classifier.fit(X_train, y_train)
-
-    grid_svc = GridSearchCV(classifier, param_grid,cv=4)
-    grid_svc.fit(X_train, y_train)
-    grid_svc.best_params_
-    print("Best: %f using %s" % (grid_svc.best_score_, grid_svc.best_params_))
-    print('Test Accuracy: %.3f' % grid_svc.score(X_test, y_test))
-    svcResult = grid_svc.score(X_test, y_test)
     
 testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,len(students_df.columns)-4]
 
@@ -516,4 +489,4 @@ def best_scores_with_feature_sets(testFeatures):
     plt.show()
     return all_rfs, all_svms, best_df
     
-#best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
+best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
