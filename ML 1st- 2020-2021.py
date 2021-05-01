@@ -9,6 +9,7 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import pearsonr
 from scipy.stats import spearmanr
+import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
@@ -19,7 +20,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn import svm
 from sklearn import metrics
 from sklearn.metrics import accuracy_score
-
+import numpy as np
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import KFold
 students_df = pd.read_csv('with_grades_df_2020_2021.csv')
 students_df.rename( columns={'Unnamed: 0':'anonymous_id'}, inplace=True )
 #%%##### Grade Distribution
@@ -174,3 +177,109 @@ clf.fit(X_train, y_train)
 y_pred = clf.predict(X_test)
 
 print("SVM Accuracy:",metrics.accuracy_score(y_test, y_pred))
+
+
+#%% 
+X = features.iloc[:,0:len(features.columns)-1].values
+y = features.iloc[:, len(features.columns)-1].values
+def rf_predict(X,y):
+    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42)
+    #print(skf.get_n_splits(X, y))
+    
+    param_grid = {
+                     'n_estimators': [5, 10, 15, 20, 100],
+                     'max_depth': [2, 5, 7, 9, 10, 11]
+                 }
+
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.fit_transform(X_test)
+
+    random_forest_data=list()
+    scores = ['precision', 'recall']
+
+    rfc = RandomForestClassifier(n_jobs=-1,n_estimators=50) 
+    cv = KFold(n_splits=10, shuffle=True, random_state=42)
+    rfc_model = GridSearchCV(estimator=rfc, param_grid=param_grid, cv=cv)
+    rfc_model.fit(X_train, y_train)
+    print(rfc_model.best_score_)
+    print(rfc_model.best_params_)
+    
+    rfc_score = rfc_model.score(X_test, y_test)
+    print('Test Accuracy: %.3f' % rfc_score)
+    return rfc_score
+
+rf_predict(X,y)
+
+def svm_predict(X,y):
+    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42)
+    
+    param_grid = [
+      {'C': [1, 10, 100, 1000], 'kernel': ['linear']},
+      {'C': [1, 10, 100, 1000], 'gamma': [0.001, 0.0001], 'kernel': ['rbf']},
+     ]
+    
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.fit_transform(X_test)
+    svc = svm.SVC(kernel='linear')
+    cv = KFold(n_splits=10, shuffle=True, random_state=42)
+    svc_model = GridSearchCV(estimator=svc, param_grid=param_grid, cv=cv)
+    svc_model.fit(X_train, y_train)
+    print(svc_model.best_score_)
+    print(svc_model.best_params_)
+    
+    svm_score = svc_model.score(X_test, y_test)
+    print('Test Accuracy: %.3f' % svm_score)
+    
+    return svm_score
+
+svm_predict(X,y)
+
+#%%Testing 
+testFeatures = [10,15,20,25,30,35,40,45,50,55,60,65,70,75,len(students_df.columns)-4]
+
+def best_scores_with_feature_sets(testFeatures):
+    all_svms=list();
+    all_rfs=list();
+    best_df = pd.DataFrame({'Number of Features':testFeatures})
+    best_df["Random Forest"] = np.nan
+    best_df["Support Vector Classifier"] = np.nan
+    
+    micro_df = pd.DataFrame({'Number of Features':testFeatures})
+    micro_df["Random Forest"] = np.nan
+    micro_df["Support Vector Classifier"] = np.nan
+    
+    print(best_df)
+    for value in testFeatures:
+        topActivities = corelations.head(value)
+        topList = list()
+        
+        for val in topActivities['Feature']:
+            topList.append(val)
+        
+        topList.append('OVERALL_GRADE')
+        features = students_df[topList]
+
+        X = features.iloc[:,0:value].values
+        y = features.iloc[:, value].values
+       
+        
+        rf_score = rf_predict(X, y)
+        svc_score = svm_predict(X, y)
+        #rf_score = rf_predict(X, y)
+        #svc_score = svm_predict(X, y)
+        #all_svms.append([value,rf_score])
+        #all_rfs.append([value,svc_score])
+        
+        best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = rf_score
+        best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = svc_score 
+        
+    best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2020/2021',  value_name='Accuracy')
+    sns.set_style("darkgrid")
+    sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2020/2021', data=best_df, palette=sns.color_palette('summer', n_colors=2))
+    plt.show()
+    
+    return best_df
+    
+best_dfs = best_scores_with_feature_sets(testFeatures)

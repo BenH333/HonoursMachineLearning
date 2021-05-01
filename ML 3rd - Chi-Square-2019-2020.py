@@ -316,7 +316,7 @@ def strat_rf_predict(X,y):
         #print("RF Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
-    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
+    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Weighted','F1 Macro'])
     return df
 #random_forest_df = strat_rf_predict()        
 
@@ -340,12 +340,6 @@ def svm_predict():
     print('Test Accuracy: %.3f' % grid_svc.score(X_test, y_test))
     svcResult = grid_svc.score(X_test, y_test)
     
-    #print(score)
-    #print("Precision:",metrics.precision_score(y_test, y_pred))
-    
-    # Model Recall: what percentage of positive tuples are labelled as such?
-    #print("Recall:",metrics.recall_score(y_test, y_pred))
-    #from sklearn.svm import SVC
     return svcResult
 
 def strat_svm_predict(X,y):
@@ -377,22 +371,22 @@ def strat_svm_predict(X,y):
             svc.fit(X_train,y_train)
             y_pred = svc.predict(X_test)
             score = accuracy_score(y_test, y_pred)
-            f1_micro = f1_score(y_test, y_pred, average='weighted')
+            
             # save if best
             if score > best_score:
                 best_score = score
                 #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
                 #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
-                f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
+                f1_weighted = f1_score(y_test,y_pred, average='weighted', zero_division=1)
                 best_grid = g
                 
         #print("SVC Score: %0.5f" % best_score) 
-        #print("F1 Micro: %0.5f" % best_micro)
+        #print("F1 Weighted: %0.5f" % f1_weighted)
         #print("SVC Grid:", best_grid)
-        data = [best_score,best_grid,f1_micro,f1_macro]
+        data = [best_score,best_grid,f1_weighted,f1_macro]
         svm_data.append(data)
-    df = pd.DataFrame(svm_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
+    df = pd.DataFrame(svm_data, columns=['Best Score','Best Grid','F1 Weighted','F1 Macro'])
     return df
 #svm_df = strat_svm_predict()
 
@@ -482,18 +476,18 @@ def best_scores_with_feature_sets(testFeatures):
         best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = best_rf['Best Score'] 
         best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['Best Score'] 
         
-        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Micro']
-        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Weighted']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Weighted']
         
         
     best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='Accuracy')
     sns.set_style("darkgrid")
     sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2019/2020', data=best_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
-    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='F1 Micro')
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='F1 Weighted')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm on 2019/2020', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="F1 Weighted", hue='ML Algorithm on 2019/2020', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
-    return all_rfs, all_svms, best_df
+    return all_rfs, all_svms, best_df, micro_df
     
-best_rf, best_svm, bestscores = best_scores_with_feature_sets(testFeatures)
+best_rf, best_svm, bestscores, microscores = best_scores_with_feature_sets(testFeatures)

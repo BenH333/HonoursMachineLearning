@@ -26,6 +26,8 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import precision_score
 from sklearn.preprocessing import MinMaxScaler
+
+from sklearn.model_selection import train_test_split
 plt.rcParams.update({'font.size': 10})
 
 students_df = pd.read_csv('with_grades_df.csv')
@@ -237,47 +239,34 @@ features = students_df[topList]
 #%% Use the Random Forest classifier
 X = features.iloc[:,0:20].values
 y = features.iloc[:, 20].values
-def rf_predict():
-    from sklearn.model_selection import train_test_split
-    
+def rf_predict(X,y):
     X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42)
+    #print(skf.get_n_splits(X, y))
     
-    from sklearn.preprocessing import StandardScaler
-    
-    sc = StandardScaler()
-    
-    X_train = sc.fit_transform(X_train)
-    X_test = sc.fit_transform(X_test)
-    
-    from sklearn.ensemble import RandomForestClassifier
     param_grid = {
-                     'n_estimators': [5, 10, 15, 20, 100, 200],
+                     'n_estimators': [5, 10, 15, 20, 100],
                      'max_depth': [2, 5, 7, 9, 10, 11]
                  }
+
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.fit_transform(X_test)
+
+    random_forest_data=list()
+    scores = ['precision', 'recall']
+
+    rfc = RandomForestClassifier(n_jobs=-1,n_estimators=50) 
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+    rfc_model = GridSearchCV(estimator=rfc, param_grid=param_grid, cv=cv)
+    rfc_model.fit(X_train, y_train)
+    print(rfc_model.best_score_)
+    print(rfc_model.best_params_)
     
-    
-    classifier = RandomForestClassifier()
-    grid_rf = GridSearchCV(classifier, param_grid, cv=2)
-    grid_rf.fit(X_train, y_train)
-    
-    #classifier = RandomForestClassifier(n_estimators=200)
-    #classifier.fit(X_train, y_train)
-    #y_pred = classifier.predict(X_test)
-    
-    print("Best: %f using %s" % (grid_rf.best_score_, grid_rf.best_params_))
-    #print("Grid scores \n", grid_clf.cv_results_)
-    
-    print('Test Accuracy: %.3f' % grid_rf.score(X_test, y_test),"\n")
-    rfResult = grid_rf.score(X_test, y_test) 
-    
-    #print(confusion_matrix(y_test, y_pred))
-    #print(classification_report(y_test, y_pred))
-    #print("Random Forest Accuracy: ",accuracy_score(y_test, y_pred))
-    
-    #score=cross_val_score(classifier,X_test,y_test,cv=5)
-    #print(score)
-#rf_predict()
-    
+    rfc_score = rfc_model.score(X_test, y_test)
+    print('Test Accuracy: %.3f' % rfc_score)
+    return rfc_score
+
+rf_predict(X,y)
 #%% Use Stratified KFold without GridCV
 def strat_rf_predict(X,y):
     skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -330,7 +319,7 @@ def strat_rf_predict(X,y):
         #print("RF Grid:", best_grid)
         data = [best_score,best_grid,f1_micro,f1_macro]
         random_forest_data.append(data)
-    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
+    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Weighted','F1 Macro'])
     return df
 #random_forest_df = strat_rf_predict(  
 
@@ -354,40 +343,31 @@ def two_col_kmeans_clustering(X,y):
     plt.scatter(X[:,0],X[:,1], c=kmeans.labels_, cmap='rainbow')
     plt.scatter(kmeans.cluster_centers_[:,0] ,kmeans.cluster_centers_[:,1], color='black')
 #%% SVM 
-def svm_predict():
-    from sklearn.preprocessing import StandardScaler
-    
-    from sklearn.svm import SVC
-    from sklearn.model_selection import train_test_split
-    
+def svm_predict(X,y):
+    from sklearn import svm
     X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.2, random_state=42)
-    sc = StandardScaler()
-    
-    X_train = sc.fit_transform(X_train)
-    X_test = sc.fit_transform(X_test)
-    
-    svcClassifier = SVC(gamma='scale')
     
     param_grid = [
       {'C': [1, 10, 100, 1000], 'kernel': ['linear']},
       {'C': [1, 10, 100, 1000], 'gamma': [0.001, 0.0001], 'kernel': ['rbf']},
      ]
     
-    ## 2 fold as there are only two members of the class 0 in y_train
-    grid_svc = GridSearchCV(svcClassifier, param_grid, cv=2)
-    grid_svc.fit(X_train, y_train)
-    grid_svc.best_params_
+    sc = StandardScaler()
+    X_train = sc.fit_transform(X_train)
+    X_test = sc.fit_transform(X_test)
+    svc = svm.SVC(kernel='linear')
+    cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+    svc_model = GridSearchCV(estimator=svc, param_grid=param_grid, cv=cv)
+    svc_model.fit(X_train, y_train)
+    print(svc_model.best_score_)
+    print(svc_model.best_params_)
     
-    print("Best: %f using %s" % (grid_svc.best_score_, grid_svc.best_params_))
-    print('Test Accuracy: %.3f' % grid_svc.score(X_test, y_test))
-    svcResult = grid_svc.score(X_test, y_test)
+    svm_score = svc_model.score(X_test, y_test)
+    print('Test Accuracy: %.3f' % svm_score)
     
-    #print(score)
-    #print("Precision:",metrics.precision_score(y_test, y_pred))
-    
-    # Model Recall: what percentage of positive tuples are labelled as such?
-    #print("Recall:",metrics.recall_score(y_test, y_pred))
-    #from sklearn.svm import SVC
+    return svm_score
+
+svm_predict(X,y)
     
 def strat_svm_predict(X,y):
     skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
@@ -427,15 +407,15 @@ def strat_svm_predict(X,y):
                 #best_recall = recall_score(y_test, y_pred,average='macro', zero_division=1)
                 #best_precision = precision_score(y_test, y_pred,average='macro', zero_division=1)
                 f1_macro = f1_score(y_test,y_pred, average='macro', zero_division=1)
-                f1_micro = f1_score(y_test,y_pred, average='micro', zero_division=1)
+                f1_weighted = f1_score(y_test,y_pred, average='weighted', zero_division=1)
                 best_grid = g
                 
         #print("SVC Score: %0.5f" % best_score) 
         #print("F1 Micro: %0.5f" % f1_micro)
         #print("SVC Grid:", best_grid)
-        data = [best_score,best_grid,f1_micro,f1_macro]
+        data = [best_score,best_grid,f1_weighted,f1_macro]
         random_forest_data.append(data)
-    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Micro','F1 Macro'])
+    df = pd.DataFrame(random_forest_data, columns=['Best Score','Best Grid','F1 Weighted','F1 Macro'])
     return df
 #svm_df = strat_svm_predict()
     
@@ -483,17 +463,17 @@ def best_scores_with_feature_sets(testFeatures):
         best_df.loc[best_df['Number of Features'] == value, 'Random Forest'] = best_rf['Best Score'] 
         best_df.loc[best_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['Best Score'] 
         
-        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Micro']
-        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Micro']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Random Forest'] = best_rf['F1 Weighted']
+        micro_df.loc[micro_df['Number of Features'] == value, 'Support Vector Classifier'] = best_svm['F1 Weighted']
         
         
     best_df = best_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='Accuracy')
     sns.set_style("darkgrid")
     sns.factorplot(x="Number of Features", y="Accuracy", hue='ML Algorithm on 2019/2020', data=best_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
-    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='F1 Micro')
+    micro_df = micro_df.melt('Number of Features', var_name='ML Algorithm on 2019/2020',  value_name='F1 Weighted')
     sns.set_style("darkgrid")
-    sns.factorplot(x="Number of Features", y="F1 Micro", hue='ML Algorithm on 2019/2020', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
+    sns.factorplot(x="Number of Features", y="F1 Weighted", hue='ML Algorithm on 2019/2020', data=micro_df, palette=sns.color_palette('summer', n_colors=2))
     plt.show()
     return all_rfs, all_svms, best_df
     
